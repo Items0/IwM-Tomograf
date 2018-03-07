@@ -3,8 +3,11 @@ from matplotlib import pyplot as plt
 import numpy as np
 import cmath
 from math import *
+from skimage.transform import radon
 
 def line(x0,y0, x1,y1, zdj):
+    suma = 0
+    ile = 0
     dx = x1-x0
     dy = y1-y0
 
@@ -26,7 +29,9 @@ def line(x0,y0, x1,y1, zdj):
 
         x, y = (0, 0)
         for i in range(dx+1):
-            zdj[y0+y][x0+x] = 1
+            #zdj[y0+y][x0+x] = 1
+            suma += zdj[y0+y][x0+x]
+            ile += 1
             if d > 0:
                 d += delta_B
                 x += inc_x
@@ -42,7 +47,9 @@ def line(x0,y0, x1,y1, zdj):
 
         x, y = (0, 0)
         for i in range(dy+1):
-            zdj[y0 + y][x0 + x] = 1
+            #zdj[y0 + y][x0 + x] = 1
+            suma += zdj[y0 + y][x0 + x]
+            ile += 1
             if d > 0:
                 d += delta_B
                 x += inc_x
@@ -50,39 +57,44 @@ def line(x0,y0, x1,y1, zdj):
             else:
                 d += delta_A
                 y += inc_y
-    return zdj
+    return suma/ile
 
 def main():
-    fileName = "Kolo.jpg"
+    fileName = "Kwadraty2.jpg"
+    #fileName = "Paski2.jpg"
     #fileName = "CT_ScoutView.jpg"
-    #fileName = "xx.jpg"
+    #fileName = "Shepp_logan.jpg"
     image = io.imread("tomograf-zdjecia/" + fileName, as_grey=True)
     h, w = image.shape #wysokosc, szerokosc
-    #print(image.shape)
     r = min(h, w) / 2 - 1 # aby sie odsunac od krawedzi
-    center = h/2, w/2
-    krok = 1
-    ndetektorow = 3
-    rozpietosc = 30 # phi
-    alfa = 360/krok
-    #emiter = center[0], center[1] + r
-    #print(emiter)
-    #image[int(emiter[0])][int(emiter[1])] = 1
+    center = h / 2, w / 2
+    krok = 180
+    ndetektorow = 100
+    rozpietosc = 270 # phi
+    alfa = 360 / krok
+    tab = np.zeros((krok, ndetektorow))
     for i in range(0, krok):
-        xe = int(round(r * cos(radians(alfa * i)) + center[1],1))
-        ye = int(round(r * sin(radians(alfa * i)) + center[0],1))
-        image[ye][xe] = 1
-        print("emiter=",xe,ye)
+        xe = int(round(r * cos(radians(alfa * i)) + center[1], 1))
+        ye = int(round(r * sin(radians(alfa * i)) + center[0], 1))
+        #image[ye][xe] = 1
         for k in range(0, ndetektorow):
             xdi = int(round(r * cos(radians(alfa + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[1])
             ydi = int(round(r * sin(radians(alfa + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[0])
-            image = line(xe, ye, xdi, ydi, image)
-            image[ydi][xdi] = 1
-    io.imshow(image)
-    plt.show()
-
+            tab[i][k] = line(xe, ye, xdi, ydi, image)
+            #image[ydi][xdi] = 1
+    #print(tab)
+    '''
+    mymax = np.max(tab)
+    for i in range(0, tab.shape[0]):
+        for k in range(0, tab.shape[1]):
+            tab[i][k] = tab[i][k] / mymax
+    print(tab)
+    '''
     #print(image)
-    #print(center)
-    #print(cos(radians(30)))
+    io.imshow(tab)
+    #theta = np.linspace(0., 180., max(image.shape), endpoint=False)
+    #sinogram = radon(image, theta=theta, circle=True)
+    #io.imshow(sinogram, cmap=plt.cm.Greys_r, extent=(0, 180, 0, sinogram.shape[0]), aspect='auto')
+    plt.show()
 if __name__ == '__main__':
     main()

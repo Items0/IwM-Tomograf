@@ -72,6 +72,8 @@ def main():
     rozpietosc = 270 # phi
     alfa = 360 / krok
     tab = np.zeros((krok, ndetektorow))
+    revertTab = np.zeros((h,w))
+    #create sinogram
     for i in range(0, krok):
         xe = int(round(r * cos(radians(alfa * i)) + center[1], 1))
         ye = int(round(r * sin(radians(alfa * i)) + center[0], 1))
@@ -79,14 +81,25 @@ def main():
             xdi = int(round(r * cos(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[1])
             ydi = int(round(r * sin(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[0])
             tab[i][k] = calculateAvg(line(xe, ye, xdi, ydi), image)
-    '''
-    mymax = np.max(tab)
-    for i in range(0, tab.shape[0]):
-        for k in range(0, tab.shape[1]):
-            tab[i][k] = tab[i][k] / mymax
-    print(tab)
-    '''
-    io.imshow(tab)
+
+    #restore image from sinogram
+    for i in range(0, krok):
+        xe = int(round(r * cos(radians(alfa * i)) + center[1], 1))
+        ye = int(round(r * sin(radians(alfa * i)) + center[0], 1))
+        for k in range(0, ndetektorow):
+            xdi = int(round(r * cos(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[1])
+            ydi = int(round(r * sin(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[0])
+            myLine = line(xe, ye, xdi, ydi)
+            for y,x in myLine:
+                revertTab[y][x] += tab[i][k]
+
+    #normalization
+    mymax = np.max(revertTab)
+    for i in range(0, revertTab.shape[0]):
+        for k in range(0, revertTab.shape[1]):
+            revertTab[i][k] = revertTab[i][k] / mymax
+
+    io.imshow(revertTab)
     plt.show()
 
 if __name__ == '__main__':

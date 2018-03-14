@@ -1,9 +1,54 @@
-from skimage import io
+from skimage import io, filters
 from matplotlib import pyplot as plt
 import numpy as np
 import cmath
+import skimage
 from math import *
 from skimage.transform import radon
+
+def normalizeM(nowyTab):
+    nowyTabMax = np.max(nowyTab)
+    for i in range(0, nowyTab.shape[0]):
+        for k in range(0, nowyTab.shape[1]):
+            nowyTab[i][k]=nowyTab[i][k] / nowyTabMax
+            if(nowyTab[i][k]<0):
+                nowyTab[i][k]=0
+    return nowyTab
+
+def normalize(tab):
+    mymax = np.max(tab)
+    for i in range(0, tab.shape[0]):
+        for k in range(0, tab.shape[1]):
+            tab[i][k] = tab[i][k] / mymax
+    return tab
+
+def createMask(ndetektorow):
+    ndetektorow = int(round(ndetektorow / 4, 1)) #wielkosc maski = dlugosc wiersza / 4
+    maska=np.zeros((ndetektorow))
+    maska[0] = 1
+    for h in range(len(maska)):
+        if(h % 2 != 0):
+            maska[h] = -4 / (pi * pi * h * h)
+    return maska
+
+def myConvolve(krok, ndetektorow, tab, maska):
+    wyn = np.zeros((krok, ndetektorow + len(maska)))
+    nowyTab = np.zeros((krok, ndetektorow + len(maska))) #rozszerzona
+
+    for i in range(krok): #skopiowana
+        for k in range (len(maska), len(maska) + ndetektorow):
+            nowyTab[i][k] = tab[i][k-len(maska)]
+
+    for i in range(krok):
+        for k in range(ndetektorow + len(maska)):
+            for el in range(len(maska)):
+                wyn[i][k] += nowyTab[i][k-el] * maska[el]
+    wyn = wyn[:, len(maska):]
+    return wyn
+
+def bladSredniokwadratowy(pocz, wynikowa):
+
+    return np.power(np.subtract(wynikowa, pocz), 2).mean() ** 0.5
 
 def calculateAvg(myLine, image):
     sum = 0
@@ -59,8 +104,9 @@ def line(x0,y0, x1,y1):
     return myLine
 
 def main():
-    fileName = "Kwadraty2.jpg"
-    #fileName = "Paski2.jpg"
+    #fileName = "Kolo.jpg"
+    #fileName = "Kwadraty2.jpg"
+    fileName = "Paski2.jpg"
     #fileName = "CT_ScoutView.jpg"
     #fileName = "Shepp_logan.jpg"
     image = io.imread("tomograf-zdjecia/" + fileName, as_grey=True)
@@ -73,6 +119,7 @@ def main():
     alfa = 360 / krok
     tab = np.zeros((krok, ndetektorow))
     revertTab = np.zeros((h,w))
+
     #create sinogram
     for i in range(0, krok):
         xe = int(round(r * cos(radians(alfa * i)) + center[1], 1))
@@ -82,7 +129,12 @@ def main():
             ydi = int(round(r * sin(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[0])
             tab[i][k] = calculateAvg(line(xe, ye, xdi, ydi), image)
 
-    #restore image from sinogram
+    mask = createMask(ndetektorow)
+
+    #splot
+    afterConv = myConvolve(krok, ndetektorow, tab, mask)
+    afterConv=normalizeM(afterConv)
+
     for i in range(0, krok):
         xe = int(round(r * cos(radians(alfa * i)) + center[1], 1))
         ye = int(round(r * sin(radians(alfa * i)) + center[0], 1))
@@ -90,15 +142,13 @@ def main():
             xdi = int(round(r * cos(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[1])
             ydi = int(round(r * sin(radians(alfa * i + 180 - rozpietosc / 2 + k * rozpietosc / (ndetektorow - 1))), 1) + center[0])
             myLine = line(xe, ye, xdi, ydi)
-            for y,x in myLine:
-                revertTab[y][x] += tab[i][k]
-
-    #normalization
-    mymax = np.max(revertTab)
-    for i in range(0, revertTab.shape[0]):
-        for k in range(0, revertTab.shape[1]):
-            revertTab[i][k] = revertTab[i][k] / mymax
-
+            for y, x in myLine:
+                revertTab[y][x] += afterConv[i][k]
+    print(bladSredniokwadratowy(image, revertTab))
+    print("nowyTab = ", afterConv.shape, " reverseTab = ", tab.shape)
+    revertTab = normalize(revertTab)
+    revertTab = skimage.filters.gaussian(revertTab)
+    print("after  Gauss= ", bladSredniokwadratowy(image, revertTab))
     io.imshow(revertTab)
     plt.show()
 
